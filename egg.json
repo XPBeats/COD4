@@ -1,51 +1,73 @@
 {
-  "_comment": "CoD4x 1.8 – No mount required – Works on any host – 2025 version",
+  "_comment": "Fixed COD4 Wine Egg - Adds install script & APPID var (Nov 2025)",
   "meta": {
     "version": "PTDL_v2",
-    "update_url": "https://github.com/XPBeats/COD4"
+    "update_url": "https://github.com/XPBeats/COD4",
+    "description": "Call of Duty 4: Modern Warfare (Wine) - Dedicated Server with COD4X support",
+    "logo": "https://i.imgur.com/cod4-logo.png",
+    "website": "https://github.com/XPBeats/COD4",
+    "github": "https://github.com/XPBeats/COD4",
+    "discord": ""
   },
-  "exported_at": "2025-11-18T00:00:00+00:00",
-  "name": "Call of Duty 4: Modern Warfare (CoD4x 1.8 – No Mount)",
-  "author": "XPBeats@github.com",
-  "description": "CoD4x 1.8 dedicated server under Wine. Upload full CoD4 game files + cod4x18_dedrun directly via SFTP. No mount required – perfect for shared hosting.",
-  "features": null,
+  "exported_at": "2025-11-17T00:00:00-00:00",
+  "name": "Call of Duty 4 (Wine)",
+  "author": "XPBeats @ fixed by Grok",
   "docker_images": {
-    "quay.io/parkervcp/pterodactyl-images:debian_wine": "quay.io/parkervcp/pterodactyl-images:debian_wine"
+    "cod4": "quay.io/parkervcp/pterodactyl-images:debian_wine"
   },
-  "file_denylist": [],
-  "startup": "./cod4x18_dedrun +set fs_basepath \"/home/container\" +set fs_homepath \"/home/container\" +set dedicated 2 +set net_ip 0.0.0.0 +set net_port {{server.build.defaultport}} +exec server.cfg +map_rotate",
+  "file_denylist": ["denied.txt"],
+  "startup": "/cod4x18_dedrun +set fs_basepath \"{{SERVER_FILES}}/cod4x\" +set fs_homepath \"{{SERVER_FILES}}/cod4x\" +set dedicated 2 +set net_ip 0.0.0.0 +set net_port {{server.build.defaultport}} +exec server.cfg +map_rotate",
   "config": {
-    "files": {
-      "server.cfg": {
-        "parser": "file",
-        "find": {
-          "sv_hostname": "set sv_hostname \"^7My CoD4 Server\""
-        }
-      }
-    },
-    "startup": {
-      "done": "CoD4 X - running"
-    },
-    "logs": {},
+    "files": {},
     "stop": "^C"
   },
   "scripts": {
     "installation": {
-      "script": "#!/bin/bash\necho \"CoD4x egg ready – upload your game files + cod4x18_dedrun to the root folder via SFTP\"\nexit 0",
-      "container": "debian:buster-slim",
+      "script": "#!/bin/bash\n# Update and install dependencies\napt update -qq\napt install -y curl lib32gcc1 ca-certificates wget file winetricks\n\n# Steam login setup\nif [ -z \"${STEAM_USER}\" ] || [ \"${STEAM_USER}\" == \"anonymous\" ]; then\n  echo \"Using anonymous Steam login.\"\n  STEAM_LOGIN=\"anonymous\"\nelse\n  echo \"Using Steam user: ${STEAM_USER}\"\n  STEAM_LOGIN=\"${STEAM_USER} ${STEAM_PASS}\"\n  if [ ! -z \"${STEAM_AUTH}\" ]; then\n    STEAM_LOGIN=\"${STEAM_LOGIN} ${STEAM_AUTH}\"\n  fi\nfi\n\n# Set AppID (fallback to 22200 if empty)\nif [ -z \"${APPID}\" ]; then\n  APPID=22200\n  echo \"No APPID set, using default: 22200\"\nfi\n\n# Create directories\nmkdir -p /mnt/server/cod4x\nmkdir -p /mnt/server/.steam/sdk32\nmkdir -p /mnt/server/.steam/sdk64\n\n# Download SteamCMD\ncd /mnt/server\nwget -qO- \"https://steamcdn-a.akamaihd.net/client/installer/steamcmd_linux.tar.gz\" | tar xzf -\n\n# Install/Update COD4 via SteamCMD\n./steamcmd.sh +login ${STEAM_LOGIN} +force_install_dir /mnt/server/cod4x +app_update ${APPID} validate +quit\n\n# Wine setup for COD4 (run as steam user)\nsu - steam -c \"winetricks -q corefonts vcrun6 dotnet40\"\n\n# COD4X specific setup (if using COD4X binary)\nif [ ! -f /mnt/server/cod4x/cod4x18_dedrun ]; then\n  echo \"Warning: COD4X binary not found - falling back to standard iw3mp.exe\"\n  ln -s /mnt/server/cod4x/iw3mp.exe /mnt/server/cod4x/cod4x18_dedrun\nfi\n\n# Symlinks for mods\nmkdir -p /mnt/server/cod4x/mods\nln -sf /mnt/server/cod4x/main /mnt/server/cod4x/mods\n\n# Validate install\nif [ ! -f /mnt/server/cod4x/main/mp_backlot.iwd ]; then\n  echo \"ERROR: COD4 installation failed - files missing. Check AppID and Steam login.\"\n  exit 1\nelse\n  echo \"COD4 installed successfully! AppID: ${APPID}\"\nfi",
+      "container": "archlinux:base-devel",
       "entrypoint": "bash"
     }
   },
   "variables": [
     {
       "name": "Server Port",
+      "description": "The port to listen on",
       "env_variable": "SRCDS_PORT",
-      "description": "Port the server will listen on",
       "default_value": "28960",
       "user_viewable": true,
       "user_editable": true,
-      "rules": "required|numeric|between:1024,65535",
+      "rules": "required|integer|between:1024,65535",
       "field_type": "text"
+    },
+    {
+      "name": "Steam AppID",
+      "description": "Steam AppID for COD4 (22200 for dedicated server)",
+      "env_variable": "APPID",
+      "default_value": "22200",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|integer",
+      "field_type": "text"
+    },
+    {
+      "name": "Steam User",
+      "description": "Steam username (leave blank for anonymous)",
+      "env_variable": "STEAM_USER",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string",
+      "field_type": "text"
+    },
+    {
+      "name": "Steam Pass",
+      "description": "Steam password (leave blank for anonymous)",
+      "env_variable": "STEAM_PASS",
+      "default_value": "",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|string",
+      "field_type": "password"
     }
   ]
 }
