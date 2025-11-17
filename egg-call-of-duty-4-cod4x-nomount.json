@@ -1,0 +1,51 @@
+{
+  "_comment": "CoD4x 1.8 – No mount required – Works on any host – 2025 version",
+  "meta": {
+    "version": "PTDL_v2",
+    "update_url": "https://github.com/XPBeats/COD4"
+  },
+  "exported_at": "2025-11-18T00:00:00+00:00",
+  "name": "Call of Duty 4: Modern Warfare (CoD4x 1.8 – No Mount)",
+  "author": "XPBeats@github.com",
+  "description": "CoD4x 1.8 dedicated server under Wine. Upload full CoD4 game files + cod4x18_dedrun directly via SFTP. No mount required – perfect for shared hosting.",
+  "features": null,
+  "docker_images": {
+    "quay.io/parkervcp/pterodactyl-images:debian_wine": "quay.io/parkervcp/pterodactyl-images:debian_wine"
+  },
+  "file_denylist": [],
+  "startup": "./cod4x18_dedrun +set fs_basepath \"/home/container\" +set fs_homepath \"/home/container\" +set dedicated 2 +set net_ip 0.0.0.0 +set net_port {{server.build.defaultport}} +exec server.cfg +map_rotate",
+  "config": {
+    "files": {
+      "server.cfg": {
+        "parser": "file",
+        "find": {
+          "sv_hostname": "set sv_hostname \"^7My CoD4 Server\""
+        }
+      }
+    },
+    "startup": {
+      "done": "CoD4 X - running"
+    },
+    "logs": {},
+    "stop": "^C"
+  },
+  "scripts": {
+    "installation": {
+      "script": "#!/bin/bash\necho \"CoD4x egg ready – upload your game files + cod4x18_dedrun to the root folder via SFTP\"\nexit 0",
+      "container": "debian:buster-slim",
+      "entrypoint": "bash"
+    }
+  },
+  "variables": [
+    {
+      "name": "Server Port",
+      "env_variable": "SRCDS_PORT",
+      "description": "Port the server will listen on",
+      "default_value": "28960",
+      "user_viewable": true,
+      "user_editable": true,
+      "rules": "required|numeric|between:1024,65535",
+      "field_type": "text"
+    }
+  ]
+}
